@@ -1,0 +1,35 @@
+name: Blud-C Deploy & Repository Sync
+
+on:
+  push:
+    paths:
+      - 'lib/**'
+      - 'SDK/**'
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Update version.json
+        run: |
+          VERSION=$(grep "Version:" deb_pkg/DEBIAN/control | awk '{print $2}')
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" web_dist/version.json
+
+      - name: Regenerate APT Packages Index
+        run: |
+          cd web_dist/linux
+          # Generazione file Packages
+          dpkg-scanpackages dists/stable/main/binary-amd64/ /dev/null > dists/stable/main/binary-amd64/Packages
+          gzip -9c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web_dist
+          destination_dir: bludc
